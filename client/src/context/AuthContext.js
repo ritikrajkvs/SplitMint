@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api'; // Import our new helper
 
 export const AuthContext = createContext();
 
@@ -9,25 +9,24 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Check if user is already logged in
-    axios.get('http://localhost:5000/api/me')
+    api.get('/api/me')
       .then(res => setUser(res.data))
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
 
   const login = async (email, password) => {
-    const res = await axios.post('http://localhost:5000/api/login', { email, password });
+    const res = await api.post('/api/login', { email, password });
     setUser(res.data.user);
   };
 
-  // --- NEW SIGNUP FUNCTION ADDED HERE ---
   const signup = async (name, email, password) => {
-    const res = await axios.post('http://localhost:5000/api/signup', { name, email, password });
+    const res = await api.post('/api/signup', { name, email, password });
     setUser(res.data.user);
   };
 
   const logout = async () => {
-    await axios.post('http://localhost:5000/api/logout');
+    await api.post('/api/logout');
     setUser(null);
   };
 
