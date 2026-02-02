@@ -13,8 +13,8 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
   // Dynamic URL selection
-  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-
+// We use process.env.REACT_APP_... for Create React App
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
   const signup = async (formData) => {
     try {
       const res = await axios.post(`${API_URL}/api/signup`, formData, {
