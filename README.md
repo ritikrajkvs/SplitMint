@@ -1,0 +1,2 @@
+# SplitMint
+Expense splitting app
