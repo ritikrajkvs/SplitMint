@@ -1,14 +1,15 @@
 import { createContext, useState, useContext } from "react";
 import axios from "axios";
 
-// FIX IS HERE: Added 'export' so other files can find it
+// 1. Export the Context itself
 export const AuthContext = createContext();
 
 export const useAuthContext = () => {
   return useContext(AuthContext);
 };
 
-export const AuthContextProvider = ({ children }) => {
+// 2. RENAMED: Changed 'AuthContextProvider' to 'AuthProvider' to match your index.js
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
   // Dynamic URL selection
