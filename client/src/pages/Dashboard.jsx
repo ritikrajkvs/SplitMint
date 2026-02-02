@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api'; // Use api helper
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
@@ -7,13 +7,14 @@ export default function Dashboard() {
   const [newGroupName, setNewGroupName] = useState('');
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/groups', { withCredentials: true })
-      .then(res => setGroups(res.data));
+    api.get('/api/groups')
+      .then(res => setGroups(res.data))
+      .catch(err => console.error("Failed to fetch groups"));
   }, []);
 
   const createGroup = async () => {
     if(!newGroupName) return;
-    await axios.post('http://localhost:5000/api/groups', { name: newGroupName }, { withCredentials: true });
+    await api.post('/api/groups', { name: newGroupName });
     window.location.reload();
   };
 
