@@ -11,10 +11,16 @@ const { User, Group, Expense } = require('./models/Schemas');
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors({
-  origin: [ "http://localhost:3000", process.env.CLIENT_URL ], // We will set CLIENT_URL in Render later
-  credentials: true
+
+// --- Updated CORS for Deployment ---
+app.use(cors({ 
+  origin: [ 
+    "http://localhost:3000", 
+    process.env.CLIENT_URL // You will set this in Render later
+  ], 
+  credentials: true 
 }));
+
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("DB Connected"))
@@ -31,14 +37,14 @@ const verifyToken = (req, res, next) => {
   } catch (err) { res.status(400).json({ error: "Invalid Token" }); }
 };
 
-// --- 1. Auth APIs (Added /api prefix) ---
+// --- 1. Auth APIs ---
 app.post('/api/signup', async (req, res) => {
   const { name, email, password } = req.body;
   const hashedPassword = await bcrypt.hash(password, 10);
   try {
     const user = await User.create({ name, email, password: hashedPassword });
     const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
-    res.cookie('token', token, { httpOnly: true }).json({ user });
+    res.cookie('token', token, { httpOnly: true, sameSite: 'none', secure: true }).json({ user });
   } catch (e) { res.status(400).json({ error: "Email exists" }); }
 });
 
@@ -49,11 +55,12 @@ app.post('/api/login', async (req, res) => {
     return res.status(400).json({ error: "Invalid credentials" });
   
   const token = jwt.sign({ _id: user._id }, process.env.JWT_SECRET);
-  res.cookie('token', token, { httpOnly: true }).json({ success: true, user });
+  // Updated cookie settings for cross-site (Render -> Netlify)
+  res.cookie('token', token, { httpOnly: true, sameSite: 'none', secure: true }).json({ success: true, user });
 });
 
 app.post('/api/logout', (req, res) => {
-    res.cookie('token', '', { expires: new Date(0) }).json({ success: true });
+    res.cookie('token', '', { expires: new Date(0), sameSite: 'none', secure: true }).json({ success: true });
 });
 
 app.get('/api/me', verifyToken, async (req, res) => {
@@ -123,5 +130,5 @@ app.post('/api/ai/parse', verifyToken, async (req, res) => {
   } catch (e) { res.status(500).json({ error: "AI Error" }); }
 });
 
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on ${PORT}`));
