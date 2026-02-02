@@ -1,8 +1,8 @@
 import { useState, useEffect, useContext } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api'; // Use api helper
 import { AuthContext } from '../context/AuthContext';
-import { Sparkles, Trash2 } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 
 export default function GroupDetail() {
   const { id } = useParams();
@@ -13,18 +13,18 @@ export default function GroupDetail() {
   const [form, setForm] = useState({ description: '', amount: '' });
 
   useEffect(() => {
-    axios.get(`http://localhost:5000/api/groups/${id}`, { withCredentials: true }).then(res => setGroup(res.data));
+    api.get(`/api/groups/${id}`).then(res => setGroup(res.data));
     refreshData();
   }, [id]);
 
   const refreshData = () => {
-    axios.get(`http://localhost:5000/api/groups/${id}/balance`, { withCredentials: true }).then(res => setData(res.data));
+    api.get(`/api/groups/${id}/balance`).then(res => setData(res.data));
   };
 
   const handleAI = async () => {
     if(!aiPrompt) return;
     try {
-      const res = await axios.post('http://localhost:5000/api/ai/parse', { text: aiPrompt }, { withCredentials: true });
+      const res = await api.post('/api/ai/parse', { text: aiPrompt });
       setForm({ description: res.data.description, amount: res.data.amount });
     } catch (e) { alert("AI could not understand."); }
   };
@@ -36,9 +36,9 @@ export default function GroupDetail() {
     const splitAmount = form.amount / group.members.length;
     const splits = group.members.map(m => ({ user: m._id, amount: splitAmount }));
 
-    await axios.post('http://localhost:5000/api/expenses', {
+    await api.post('/api/expenses', {
       ...form, groupId: id, splitType: 'EQUAL', splits
-    }, { withCredentials: true });
+    });
     
     setForm({ description: '', amount: '' });
     refreshData();
