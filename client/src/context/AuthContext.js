@@ -1,7 +1,8 @@
 import { createContext, useState, useContext } from "react";
 import axios from "axios";
 
-const AuthContext = createContext();
+// FIX IS HERE: Added 'export' so other files can find it
+export const AuthContext = createContext();
 
 export const useAuthContext = () => {
   return useContext(AuthContext);
@@ -10,28 +11,22 @@ export const useAuthContext = () => {
 export const AuthContextProvider = ({ children }) => {
   const [user, setUser] = useState(null);
 
-  // 1. This line automatically picks the right URL (Localhost vs Render)
-  // If VITE_API_URL is set, use it. Otherwise default to localhost.
+  // Dynamic URL selection
   const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
   const signup = async (formData) => {
     try {
-      // 2. We use the dynamic API_URL here instead of hardcoding localhost
       const res = await axios.post(`${API_URL}/api/signup`, formData, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-        withCredentials: true // Important if you use cookies
+        headers: { "Content-Type": "application/json" },
+        withCredentials: true 
       });
 
-      // Assuming your backend returns the user data in res.data
       setUser(res.data);
       console.log("Signup success:", res.data);
       return { success: true };
 
     } catch (error) {
       console.error("Signup Error:", error);
-      // Return the error message to display on the form
       return { 
         success: false, 
         message: error.response?.data?.error || "Signup failed" 
