@@ -13,12 +13,12 @@ app.use(express.json());
 app.use(cookieParser());
 
 // --- Updated CORS for Deployment ---
-app.use(cors({ 
-  origin: [ 
-    "http://localhost:3000", 
-    process.env.CLIENT_URL // You will set this in Render later
-  ], 
-  credentials: true 
+const cors = require("cors"); // Ensure this is imported at the top
+
+// UPDATE THIS PART
+app.use(cors({
+  origin: "https://cozy-seahorse-f5aa60.netlify.app", // Your actual Netlify URL
+  credentials: true  // Required for cookies/sessions to work
 }));
 
 // Connect to MongoDB
