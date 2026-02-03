@@ -3,7 +3,7 @@ import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
-  const [isLogin, setIsLogin] = useState(true); // Toggle state
+  const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -14,9 +14,11 @@ export default function Login() {
     e.preventDefault();
     try {
       if (isLogin) {
-        await login(email, password);
+        // FIX: Passing data as a single object
+        await login({ email, password });
       } else {
-        await signup(name, email, password);
+        // FIX: Passing data as a single object with 'name' matching your Schema
+        await signup({ name, email, password });
       }
       navigate('/');
     } catch (err) {
@@ -31,7 +33,6 @@ export default function Login() {
           {isLogin ? 'Login to SplitMint' : 'Create Account'}
         </h2>
 
-        {/* Show Name field only for Signup */}
         {!isLogin && (
           <input 
             className="border p-2 w-full mb-3 rounded" 
@@ -64,7 +65,6 @@ export default function Login() {
           {isLogin ? 'Login' : 'Sign Up'}
         </button>
 
-        {/* Toggle Link */}
         <p className="mt-4 text-center text-sm text-gray-600">
           {isLogin ? "Don't have an account? " : "Already have an account? "}
           <span 
