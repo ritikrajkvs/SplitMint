@@ -1,59 +1,51 @@
-import { createContext, useState, useContext } from "react";
+import { createContext, useState, useContext, useEffect } from "react";
 import axios from "axios";
 
 export const AuthContext = createContext();
-
-export const useAuthContext = () => {
-  return useContext(AuthContext);
-};
+export const useAuthContext = () => useContext(AuthContext);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
-  // Dynamic URL selection
-  const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000"; //
+  // Load user from local storage on load
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) setUser(JSON.parse(storedUser));
+  }, []);
 
   const signup = async (formData) => {
     try {
-      const res = await axios.post(`${API_URL}/api/signup`, formData, { //
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true 
-      });
-
-      // FIX: Check where the user object is located in the response
-      // If your backend sends { user: {...}, token: ... }, use res.data.user
-      setUser(res.data.user || res.data); 
-      console.log("Signup success:", res.data);
+      const res = await axios.post(`${API_URL}/api/signup`, formData);
+      localStorage.setItem("user", JSON.stringify(res.data)); // Save Token
+      localStorage.setItem("token", res.data.token);          // Save Token Key
+      setUser(res.data);
       return { success: true };
-
     } catch (error) {
-      console.error("Signup Error:", error);
-      return { 
-        success: false, 
-        message: error.response?.data?.error || "Signup failed" 
-      };
+      return { success: false, message: error.response?.data?.error };
     }
   };
 
   const login = async (formData) => {
     try {
-      const res = await axios.post(`${API_URL}/api/login`, formData, { //
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true
-      });
-      
-      setUser(res.data.user || res.data);
+      const res = await axios.post(`${API_URL}/api/login`, formData);
+      localStorage.setItem("user", JSON.stringify(res.data)); // Save Token
+      localStorage.setItem("token", res.data.token);          // Save Token Key
+      setUser(res.data);
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        message: error.response?.data?.error || "Login failed" 
-      };
+      return { success: false, message: error.response?.data?.error };
     }
   };
 
+  const logout = () => {
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    setUser(null);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, signup, login }}>
+    <AuthContext.Provider value={{ user, signup, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
