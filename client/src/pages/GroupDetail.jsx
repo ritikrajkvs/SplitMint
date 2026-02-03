@@ -29,11 +29,12 @@ export default function GroupDetail() {
   const [splitType, setSplitType] = useState("EQUAL");
   const [customSplits, setCustomSplits] = useState({});
 
-  // Filters (Requirement 7)
-  const [search, setSearch] = useState("");
-  const [filterUser, setFilterUser] = useState("ALL");
-  const [filterDate, setFilterDate] = useState("");
-  const [filterMinAmount, setFilterMinAmount] = useState("");
+  // --- REQUIREMENT 7: SEARCH & FILTERS STATE ---
+  const [searchText, setSearchText] = useState("");       // Search by text
+  const [filterUser, setFilterUser] = useState("ALL");    // Filter by participant
+  const [startDate, setStartDate] = useState("");         // Date Range (Start)
+  const [endDate, setEndDate] = useState("");             // Date Range (End)
+  const [minAmount, setMinAmount] = useState("");         // Filter by Amount
 
   const getInitials = (name) => name ? name.charAt(0).toUpperCase() : "?";
 
@@ -102,25 +103,38 @@ export default function GroupDetail() {
   if (loading) return <div className="p-10 text-center">Loading...</div>;
   if (!data) return <div className="p-10 text-center">Group Not Found</div>;
 
-  // --- CALCULATIONS FOR VISUALIZATION ---
+  // --- CALCULATIONS ---
   const myMemberId = data.group.members.find(m => m.isAdmin)?._id || data.group.members[0]?._id;
   const myBalance = data.balances[myMemberId] || 0;
   
   const totalGroupSpend = data.expenses.reduce((sum, e) => sum + e.amount, 0);
   
-  // Calculate how much each person PAID (Contribution)
   const contributions = {};
   data.group.members.forEach(m => contributions[m._id] = 0);
   data.expenses.forEach(e => {
     if (contributions[e.payer] !== undefined) contributions[e.payer] += e.amount;
   });
 
-  // Filter Logic
+  // --- REQUIREMENT 7: FILTER LOGIC ---
   const filteredExpenses = data.expenses.filter(e => {
-    const matchesText = e.description.toLowerCase().includes(search.toLowerCase());
-    const matchesUser = filterUser === "ALL" || e.payer === filterUser;
-    const matchesDate = !filterDate || e.date.startsWith(filterDate);
-    const matchesAmount = !filterMinAmount || e.amount >= parseFloat(filterMinAmount);
+    // 1. Text Search (Description)
+    const matchesText = e.description.toLowerCase().includes(searchText.toLowerCase());
+    
+    // 2. Participant Filter (Did they pay OR are they split in it?)
+    const matchesUser = filterUser === "ALL" || e.payer === filterUser || e.splits.some(s => s.user === filterUser);
+    
+    // 3. Date Range Filter
+    const expenseDate = new Date(e.date);
+    const start = startDate ? new Date(startDate) : null;
+    const end = endDate ? new Date(endDate) : null;
+    // Fix: Set end date time to end of day to include transactions on that day
+    if (end) end.setHours(23, 59, 59, 999);
+
+    const matchesDate = (!start || expenseDate >= start) && (!end || expenseDate <= end);
+    
+    // 4. Amount Filter (Min Amount)
+    const matchesAmount = !minAmount || e.amount >= parseFloat(minAmount);
+
     return matchesText && matchesUser && matchesDate && matchesAmount;
   });
 
@@ -148,22 +162,17 @@ export default function GroupDetail() {
         </div>
       </div>
 
-      {/* REQUIREMENT 6: VISUALIZATIONS - SUMMARY CARDS */}
+      {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Card 1: Total Spent */}
         <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
           <p className="text-gray-500 text-sm font-semibold uppercase">Total Group Spend</p>
           <p className="text-3xl font-bold text-gray-800 mt-1">₹{totalGroupSpend.toLocaleString()}</p>
         </div>
-        
-        {/* Card 2: My Contribution */}
         <div className="bg-white p-6 rounded-lg shadow border-l-4 border-purple-500">
           <p className="text-gray-500 text-sm font-semibold uppercase">You Paid</p>
           <p className="text-3xl font-bold text-gray-800 mt-1">₹{contributions[myMemberId]?.toLocaleString() || 0}</p>
           <p className="text-xs text-gray-400 mt-1">Total outflow</p>
         </div>
-
-        {/* Card 3: Net Position */}
         <div className={`bg-white p-6 rounded-lg shadow border-l-4 ${myBalance >= 0 ? 'border-green-500' : 'border-red-500'}`}>
           <p className="text-gray-500 text-sm font-semibold uppercase">Your Net Balance</p>
           <p className={`text-3xl font-bold mt-1 ${myBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -245,7 +254,7 @@ export default function GroupDetail() {
         {/* MIDDLE & RIGHT: Dashboard & History */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* REQUIREMENT 6: VISUALIZATION - SPENDING SHARES */}
+          {/* VISUALIZATION: SPENDING SHARES */}
           <div className="bg-white p-6 rounded-lg shadow">
             <h3 className="font-bold text-gray-700 mb-4">Spending Contributions (Shares)</h3>
             <div className="space-y-3">
@@ -268,10 +277,9 @@ export default function GroupDetail() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* REQUIREMENT 6: BALANCE TABLE (DIRECTIONAL) */}
+            {/* BALANCE TABLE */}
             <div className="bg-white p-6 rounded-lg shadow border-t-4 border-blue-400">
-              <h3 className="font-bold text-gray-800 mb-4">Settlement Plan (Who Owes Whom)</h3>
+              <h3 className="font-bold text-gray-800 mb-4">Settlement Plan</h3>
               {data.settlements.length === 0 ? <p className="text-gray-400 text-center italic py-4">Everyone is settled up! 🎉</p> : (
                 <table className="w-full text-sm">
                   <thead>
@@ -319,23 +327,39 @@ export default function GroupDetail() {
             </div>
           </div>
 
-          {/* REQUIREMENT 7: FILTERS & TRANSACTION LEDGER */}
+          {/* REQUIREMENT 7: ADVANCED SEARCH & FILTER UI */}
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="p-4 bg-gray-50 border-b">
               <h3 className="font-bold text-gray-700 mb-3">Transaction History</h3>
-              <div className="flex flex-wrap gap-2">
-                 <input placeholder="Search expenses..." className="border p-2 rounded text-sm flex-1" onChange={e => setSearch(e.target.value)} />
-                 <select className="border p-2 rounded text-sm bg-white" onChange={e => setFilterUser(e.target.value)}>
+              
+              {/* Filter Controls Row */}
+              <div className="flex flex-wrap gap-2 items-center">
+                 {/* Text Search */}
+                 <div className="flex-grow">
+                   <input placeholder="Search Description..." className="w-full border p-2 rounded text-sm focus:outline-blue-500" onChange={e => setSearchText(e.target.value)} />
+                 </div>
+                 
+                 {/* Participant Filter */}
+                 <select className="border p-2 rounded text-sm bg-white focus:outline-blue-500" onChange={e => setFilterUser(e.target.value)}>
                    <option value="ALL">All Participants</option>
                    {data.group.members.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
                  </select>
-                 <input type="date" className="border p-2 rounded text-sm bg-white" onChange={e => setFilterDate(e.target.value)} />
-                 <input type="number" placeholder="Min Amount" className="border p-2 rounded text-sm w-28" onChange={e => setFilterMinAmount(e.target.value)} />
+                 
+                 {/* Date Range Filters */}
+                 <div className="flex items-center gap-1 bg-white border rounded px-2">
+                   <span className="text-xs text-gray-400">From</span>
+                   <input type="date" className="p-1 text-sm focus:outline-none" onChange={e => setStartDate(e.target.value)} />
+                   <span className="text-xs text-gray-400">To</span>
+                   <input type="date" className="p-1 text-sm focus:outline-none" onChange={e => setEndDate(e.target.value)} />
+                 </div>
+
+                 {/* Amount Filter */}
+                 <input type="number" placeholder="Min ₹" className="border p-2 rounded text-sm w-20 focus:outline-blue-500" onChange={e => setMinAmount(e.target.value)} />
               </div>
             </div>
             
             <div className="max-h-96 overflow-y-auto">
-              {filteredExpenses.length === 0 ? <p className="text-center py-8 text-gray-400">No transactions found.</p> : filteredExpenses.map(exp => (
+              {filteredExpenses.length === 0 ? <p className="text-center py-8 text-gray-400">No transactions match your filters.</p> : filteredExpenses.map(exp => (
                 <div key={exp._id} className="p-4 border-b hover:bg-gray-50 flex justify-between items-center group transition">
                   <div className="flex items-center gap-4">
                     <div className="bg-blue-100 text-blue-600 font-bold px-3 py-2 rounded text-xs uppercase text-center w-16">
