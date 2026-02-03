@@ -231,7 +231,7 @@ export default function GroupDetail() {
             {/* MEMBERS LIST */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="font-bold text-slate-800 text-lg">Members</h3>
+                <h3 className="font-bold text-slate-800 text-xl">Members</h3>
                 <button onClick={() => setShowMemberForm(!showMemberForm)} className="text-indigo-600 text-sm font-semibold hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1">
                   <span className="text-lg">+</span> Add
                 </button>
@@ -273,7 +273,7 @@ export default function GroupDetail() {
 
             {/* EXPENSE FORM */}
             <div id="expenseForm" className={`bg-white p-6 rounded-2xl shadow-sm border transition-all duration-300 ${highlightAdd ? "border-green-400 ring-4 ring-green-50 shadow-xl" : "border-slate-100"}`}>
-              <h3 className="font-bold text-slate-800 text-lg mb-6 flex items-center gap-2">
+              <h3 className="font-bold text-slate-800 text-xl mb-6 flex items-center gap-2">
                 <span className="bg-green-100 text-green-700 p-1.5 rounded-lg text-sm">₹</span>
                 {editingExpense ? "Edit Expense" : "Add Expense"}
               </h3>
@@ -372,7 +372,7 @@ export default function GroupDetail() {
               
               {/* SPENDING SHARES */}
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                <h3 className="font-bold text-slate-800 mb-4">Spending Shares</h3>
+                <h3 className="font-bold text-slate-800 mb-4 text-xl">Spending Shares</h3>
                 <div className="space-y-4">
                   {data.group.members.map(m => {
                     const paid = contributions[m._id] || 0;
@@ -394,7 +394,7 @@ export default function GroupDetail() {
 
               {/* SETTLEMENT PLAN */}
               <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col">
-                <h3 className="font-bold text-slate-800 mb-4">How to Settle Up</h3>
+                <h3 className="font-bold text-slate-800 mb-4 text-xl">How to Settle Up</h3>
                 <div className="flex-1 overflow-y-auto custom-scrollbar max-h-60">
                   {data.settlements.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-2">
@@ -429,8 +429,8 @@ export default function GroupDetail() {
             {/* HISTORY SECTION */}
             <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
               <div className="p-6 border-b border-slate-100 bg-white">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-                  <h3 className="font-bold text-slate-800 text-lg">Transaction History</h3>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+                  <h3 className="font-bold text-slate-800 text-xl">Transaction History</h3>
                   <div className="flex items-center gap-2">
                      <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">
                        {filteredExpenses.length} Records
@@ -438,35 +438,65 @@ export default function GroupDetail() {
                   </div>
                 </div>
 
-                {/* FILTERS TOOLBAR */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                   <div className="relative">
-                     <svg className="w-4 h-4 absolute left-3 top-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                     <input placeholder="Search..." className="w-full pl-9 border-slate-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500" onChange={e => setSearch(e.target.value)} />
-                   </div>
-                   
-                   <select className="border-slate-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500" onChange={e => setFilterUser(e.target.value)}>
-                     <option value="ALL">All Users</option>
-                     {data.group.members.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
-                   </select>
+                {/* UPDATED: FILTERS TOOLBAR WITH LABELS */}
+                <div className="flex flex-col gap-4">
+                  {/* Row 1: Search and User Filter */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Search</label>
+                      <div className="relative">
+                        <svg className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <input
+                          placeholder="Search transactions..."
+                          className="w-full pl-10 pr-4 py-2 border-slate-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                          onChange={e => setSearch(e.target.value)}
+                        />
+                      </div>
+                    </div>
 
-                   {/* DATE RANGE INPUTS */}
-                   <div className="flex gap-1">
-                     <input 
-                        type="date" 
-                        title="Start Date"
-                        className="w-full border-slate-200 rounded-lg text-xs focus:ring-indigo-500 focus:border-indigo-500 px-1" 
-                        onChange={e => setStartDate(e.target.value)} 
-                     />
-                     <input 
-                        type="date" 
-                        title="End Date"
-                        className="w-full border-slate-200 rounded-lg text-xs focus:ring-indigo-500 focus:border-indigo-500 px-1" 
-                        onChange={e => setEndDate(e.target.value)} 
-                     />
-                   </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Filter by Member</label>
+                      <select
+                        className="w-full border-slate-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 py-2"
+                        onChange={e => setFilterUser(e.target.value)}
+                      >
+                        <option value="ALL">All Members</option>
+                        {data.group.members.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
 
-                   <input type="number" placeholder="Min ₹" className="border-slate-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500" onChange={e => setFilterMinAmount(e.target.value)} />
+                  {/* Row 2: Date Range and Amount Filter */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">From Date</label>
+                      <input
+                        type="date"
+                        className="w-full border-slate-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 py-2"
+                        onChange={e => setStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">To Date</label>
+                      <input
+                        type="date"
+                        className="w-full border-slate-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 py-2"
+                        onChange={e => setEndDate(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Min Amount</label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2.5 text-slate-400">₹</span>
+                        <input
+                          type="number"
+                          placeholder="0"
+                          className="w-full pl-8 pr-4 py-2 border-slate-200 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500"
+                          onChange={e => setFilterMinAmount(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -480,7 +510,7 @@ export default function GroupDetail() {
                   </div>
                 ) : (
                   <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 sticky top-0 z-10 text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    <thead className="bg-slate-100 border-b border-slate-200 sticky top-0 z-10 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                       <tr>
                         <th className="px-6 py-3">Date</th>
                         <th className="px-6 py-3">Description</th>
