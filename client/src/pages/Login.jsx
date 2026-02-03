@@ -1,5 +1,5 @@
 import { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext'; //
+import { AuthContext } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
@@ -7,17 +7,15 @@ export default function Login() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, signup } = useContext(AuthContext); //
+  const { login, signup } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (isLogin) {
-        // FIX: Pass data as a single object
         await login({ email, password });
       } else {
-        // FIX: Pass data as a single object with 'name' matching your Schema
         await signup({ name, email, password });
       }
       navigate('/');
@@ -27,54 +25,78 @@ export default function Login() {
   };
 
   return (
-    <div className="flex justify-center items-center h-screen bg-gray-100">
-      <form onSubmit={handleSubmit} className="bg-white p-8 rounded shadow-md w-96">
-        <h2 className="text-2xl font-bold mb-6 text-center">
-          {isLogin ? 'Login to SplitMint' : 'Create Account'}
-        </h2>
+    <div className="min-h-[calc(100-64px)] flex items-center justify-center bg-slate-50 px-4 py-12">
+      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl border border-slate-100">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-slate-900">
+            {isLogin ? 'Welcome back' : 'Create your account'}
+          </h2>
+          <p className="mt-2 text-center text-sm text-slate-600">
+            {isLogin ? 'Enter your details to access your account' : 'Start splitting expenses with ease today'}
+          </p>
+        </div>
 
-        {!isLogin && (
-          <input 
-            className="border p-2 w-full mb-3 rounded" 
-            placeholder="Full Name" 
-            value={name}
-            onChange={e => setName(e.target.value)} 
-            required
-          />
-        )}
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="rounded-md space-y-4">
+            {!isLogin && (
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Full Name</label>
+                <input
+                  type="text"
+                  required
+                  className="appearance-none relative block w-full px-3 py-3 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent sm:text-sm transition-all"
+                  placeholder="John Doe"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+              <input
+                type="email"
+                required
+                className="appearance-none relative block w-full px-3 py-3 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent sm:text-sm transition-all"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
 
-        <input 
-          className="border p-2 w-full mb-3 rounded" 
-          type="email" 
-          placeholder="Email" 
-          value={email}
-          onChange={e => setEmail(e.target.value)} 
-          required
-        />
-        
-        <input 
-          className="border p-2 w-full mb-6 rounded" 
-          type="password" 
-          placeholder="Password" 
-          value={password}
-          onChange={e => setPassword(e.target.value)} 
-          required
-        />
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Password</label>
+              <input
+                type="password"
+                required
+                className="appearance-none relative block w-full px-3 py-3 border border-slate-300 placeholder-slate-400 text-slate-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent sm:text-sm transition-all"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          </div>
 
-        <button className="bg-green-600 text-white w-full py-2 rounded font-bold hover:bg-green-700 transition">
-          {isLogin ? 'Login' : 'Sign Up'}
-        </button>
+          <div>
+            <button
+              type="submit"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-lg text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all active:scale-[0.98]"
+            >
+              {isLogin ? 'Sign In' : 'Create Account'}
+            </button>
+          </div>
 
-        <p className="mt-4 text-center text-sm text-gray-600">
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <span 
-            onClick={() => setIsLogin(!isLogin)} 
-            className="text-blue-600 cursor-pointer hover:underline font-bold"
-          >
-            {isLogin ? 'Sign Up' : 'Login'}
-          </span>
-        </p>
-      </form>
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => setIsLogin(!isLogin)}
+              className="text-sm font-semibold text-green-600 hover:text-green-500 transition-colors"
+            >
+              {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Log In"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
