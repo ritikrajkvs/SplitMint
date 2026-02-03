@@ -30,7 +30,7 @@ export default function GroupDetail() {
   // 🤖 AI State
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
-  const [highlightAdd, setHighlightAdd] = useState(false); // NEW: Controls the button glow
+  const [highlightAdd, setHighlightAdd] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -52,7 +52,7 @@ export default function GroupDetail() {
 
   useEffect(() => { fetchData(); }, [id]);
 
-  // --- 🤖 MINTSENSE AI ACTION (With Visual Focus) ---
+  // --- 🤖 MINTSENSE AI ACTION ---
   const handleAiParse = async (e) => {
     e.preventDefault();
     if(!aiPrompt) return;
@@ -60,21 +60,19 @@ export default function GroupDetail() {
     try {
       const res = await api.post(`/api/groups/${id}/mintsense`, { text: aiPrompt });
       
-      // 1. Auto-fill Form
       setDesc(res.data.description);
       setAmount(res.data.amount);
       setPayer(res.data.payer);
       setCategory(res.data.category);
       setAiPrompt(""); 
-
-      // 2. Trigger Visual Focus
+      
       const formElement = document.getElementById("expenseForm");
       if(formElement) formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       
       setHighlightAdd(true);
-      setTimeout(() => setHighlightAdd(false), 3000); // Remove glow after 3s
+      setTimeout(() => setHighlightAdd(false), 3000);
 
-    } catch (err) { alert("AI could not understand that. Try format: 'Dinner 500 paid by Alice'"); }
+    } catch (err) { alert("AI could not understand that. Try: 'Pizza 500 by Alice'"); }
     finally { setAiLoading(false); }
   };
 
