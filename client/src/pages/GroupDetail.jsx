@@ -3,9 +3,6 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import { AuthContext } from "../context/AuthContext";
 
-// Kept for consistency, though styling is largely handled via Tailwind classes now
-const KEEP_COLORS = ["bg-red-500", "bg-orange-500", "bg-amber-500", "bg-green-500", "bg-blue-500", "bg-purple-500", "bg-pink-500", "bg-gray-500"];
-
 export default function GroupDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -38,7 +35,7 @@ export default function GroupDetail() {
   const [filterUser, setFilterUser] = useState("ALL");
   const [filterMinAmount, setFilterMinAmount] = useState("");
   
-  // NEW: Date Range State
+  // Date Range State
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -49,6 +46,7 @@ export default function GroupDetail() {
       const res = await api.get(`/api/groups/${id}`);
       setData(res.data);
       setGroupName(res.data.group.name);
+      // Only set default payer if not already set (prevents overwriting during edits)
       if(!payer && res.data.group.members.length > 0) setPayer(res.data.group.members[0]._id);
     } catch (err) { console.error(err); } 
     finally { setLoading(false); }
@@ -89,7 +87,13 @@ export default function GroupDetail() {
     e.preventDefault();
     try {
       if (editingExpense) {
-        await api.put(`/api/groups/expenses/${editingExpense}`, { description: desc, amount: parseFloat(amount), category });
+        // FIX: Included 'payer' in the update payload
+        await api.put(`/api/groups/expenses/${editingExpense}`, { 
+          description: desc, 
+          amount: parseFloat(amount), 
+          category,
+          payer 
+        });
         setEditingExpense(null);
       } else {
         const splitsArray = Object.keys(customSplits).map(uid => ({ user: uid, value: customSplits[uid] }));
@@ -101,9 +105,15 @@ export default function GroupDetail() {
   };
 
   const startEditExpense = (exp) => {
-    setEditingExpense(exp._id); setDesc(exp.description); setAmount(exp.amount); setCategory(exp.category || "General");
+    setEditingExpense(exp._id); 
+    setDesc(exp.description); 
+    setAmount(exp.amount); 
+    setCategory(exp.category || "General");
+    // FIX: Set the payer state to the expense's current payer
+    setPayer(exp.payer); 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
   const deleteExpense = async (eid) => { if(window.confirm("Delete?")) { await api.delete(`/api/groups/expenses/${eid}`); fetchData(); } };
   const deleteGroup = async () => { if(window.confirm("Delete Group?")) { await api.delete(`/api/groups/${id}`); navigate('/'); } };
 
@@ -117,18 +127,15 @@ export default function GroupDetail() {
   data.group.members.forEach(m => contributions[m._id] = 0);
   data.expenses.forEach(e => { if (contributions[e.payer] !== undefined) contributions[e.payer] += e.amount; });
 
-  // UPDATED: Filter Logic with Date Range
   const filteredExpenses = data.expenses.filter(e => {
     const matchesText = e.description.toLowerCase().includes(search.toLowerCase());
     const matchesUser = filterUser === "ALL" || e.payer === filterUser;
     const matchesAmount = !filterMinAmount || e.amount >= parseFloat(filterMinAmount);
     
-    // Date Range Logic
     const expDate = new Date(e.date);
     const start = startDate ? new Date(startDate) : null;
     const end = endDate ? new Date(endDate) : null;
     
-    // Normalize time to ensure inclusive comparison
     if(start) start.setHours(0,0,0,0);
     if(end) end.setHours(23,59,59,999);
 
@@ -307,7 +314,7 @@ export default function GroupDetail() {
                       className="w-full border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm py-2.5" 
                       value={payer} 
                       onChange={e=>setPayer(e.target.value)} 
-                      disabled={!!editingExpense}
+                      // FIX: Removed 'disabled' so you can change payer during edit
                     >
                       {data.group.members.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
                     </select>
@@ -438,7 +445,7 @@ export default function GroupDetail() {
                   </div>
                 </div>
 
-                {/* UPDATED: FILTERS TOOLBAR WITH LABELS */}
+                {/* FILTERS TOOLBAR */}
                 <div className="flex flex-col gap-4">
                   {/* Row 1: Search and User Filter */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
