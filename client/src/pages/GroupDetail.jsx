@@ -3,6 +3,14 @@ import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import { AuthContext } from "../context/AuthContext";
 
+// --- FIX: Force Tailwind to keep these colors ---
+const KEEP_COLORS = [
+  "bg-red-500", "bg-orange-500", "bg-amber-500", "bg-yellow-500", "bg-lime-500",
+  "bg-green-500", "bg-emerald-500", "bg-teal-500", "bg-cyan-500", "bg-sky-500",
+  "bg-blue-500", "bg-indigo-500", "bg-violet-500", "bg-purple-500", "bg-fuchsia-500",
+  "bg-pink-500", "bg-rose-500", "bg-gray-500"
+];
+
 export default function GroupDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -11,12 +19,10 @@ export default function GroupDetail() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   
-  // UI State
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [editingMember, setEditingMember] = useState(null);
   const [editName, setEditName] = useState("");
 
-  // Expense Form
   const [desc, setDesc] = useState("");
   const [amount, setAmount] = useState("");
   const [payer, setPayer] = useState(""); 
@@ -39,11 +45,9 @@ export default function GroupDetail() {
 
   useEffect(() => { fetchData(); }, [id]);
 
-  // --- ACTIONS ---
-
   const addMember = async (e) => {
     e.preventDefault();
-    const name = e.target.name.value; // GETTING NAME FROM INPUT
+    const name = e.target.name.value;
     try {
       await api.post(`/api/groups/${id}/members`, { name });
       setShowMemberForm(false);
@@ -103,7 +107,6 @@ export default function GroupDetail() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-      {/* HEADER */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">{data.group.name}</h1>
@@ -118,24 +121,19 @@ export default function GroupDetail() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* LEFT COLUMN: Members & Expense Form */}
+        {/* LEFT */}
         <div className="space-y-6">
-          
-          {/* MEMBERS LIST */}
           <div className="bg-white p-4 rounded shadow border">
             <div className="flex justify-between mb-2">
               <h3 className="font-bold">People</h3>
               <button onClick={() => setShowMemberForm(!showMemberForm)} className="text-blue-600 text-sm font-bold">+ Add Person</button>
             </div>
-            
             {showMemberForm && (
               <form onSubmit={addMember} className="flex gap-2 mb-4">
                 <input name="name" placeholder="Name" className="border p-1 w-full rounded text-sm" autoFocus />
                 <button className="bg-blue-600 text-white px-3 rounded text-sm">Add</button>
               </form>
             )}
-
             <ul className="space-y-2">
               {data.group.members.map(m => (
                 <li key={m._id} className="flex justify-between items-center text-sm group">
@@ -147,7 +145,8 @@ export default function GroupDetail() {
                   ) : (
                     <>
                       <div className="flex items-center gap-2">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm ${m.avatarColor}`}>
+                        {/* Avatar with Initials & Robust Color */}
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-sm ${m.avatarColor || "bg-gray-500"}`}>
                           {getInitials(m.name)}
                         </div>
                         <span>{m.name}</span>
@@ -163,28 +162,22 @@ export default function GroupDetail() {
             </ul>
           </div>
 
-          {/* ADD EXPENSE */}
           <div className="bg-white p-6 rounded shadow border">
             <h3 className="font-bold mb-4">Add Expense</h3>
             <form onSubmit={addExpense} className="space-y-3">
               <input className="border p-2 w-full rounded" placeholder="Description" value={desc} onChange={e=>setDesc(e.target.value)} required />
-              
               <div className="flex gap-2">
                 <input className="border p-2 w-full rounded" type="number" placeholder="Amount" value={amount} onChange={e=>setAmount(e.target.value)} required />
                 <select className="border p-2 rounded w-1/2" value={payer} onChange={e=>setPayer(e.target.value)}>
                    {data.group.members.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
                 </select>
               </div>
-
-              {/* Split Mode Tabs */}
               <div className="flex gap-1 text-xs">
                 {['EQUAL', 'EXACT', 'PERCENT'].map(t => (
                   <button type="button" key={t} onClick={()=>setSplitType(t)} 
                     className={`px-2 py-1 border rounded ${splitType===t?'bg-gray-800 text-white':'bg-gray-100'}`}>{t}</button>
                 ))}
               </div>
-
-              {/* Custom Split Inputs */}
               {splitType !== 'EQUAL' && (
                 <div className="bg-gray-50 p-2 rounded space-y-2">
                   {data.group.members.map(m => (
@@ -196,16 +189,14 @@ export default function GroupDetail() {
                   ))}
                 </div>
               )}
-              
               <button className="bg-green-600 text-white w-full py-2 rounded font-bold">Save Expense</button>
             </form>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Visualizations */}
+        {/* RIGHT */}
         <div className="lg:col-span-2 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* SETTLEMENTS */}
             <div className="bg-blue-50 p-4 rounded border border-blue-100">
               <h3 className="font-bold text-blue-800 mb-2">Settlement Plan</h3>
               {data.settlements.length === 0 ? <p className="text-gray-500 text-sm">All settled.</p> : (
@@ -224,8 +215,6 @@ export default function GroupDetail() {
                 </ul>
               )}
             </div>
-            
-            {/* BALANCES */}
             <div className="bg-white p-4 rounded border shadow">
                <h3 className="font-bold mb-2">Balances</h3>
                <ul className="space-y-2 text-sm">
@@ -243,8 +232,6 @@ export default function GroupDetail() {
                </ul>
             </div>
           </div>
-
-          {/* HISTORY */}
           <div className="bg-white rounded shadow border">
             <div className="p-4 border-b flex justify-between items-center bg-gray-50">
               <h3 className="font-bold">Transactions</h3>
