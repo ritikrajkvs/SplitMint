@@ -8,7 +8,7 @@ const { protect } = require("../middleware/authMiddleware");
 const STOP_WORDS = [
   "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves",
   "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves",
-  "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be", "been", "being",
+  "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be","rs", "been", "being",
   "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until",
   "while", "of", "at", "by", "for", "with", "about", "against", "between", "into", "through", "during", "before", "after", "above", "below",
   "to", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here", "there",
@@ -189,12 +189,22 @@ router.delete("/:id", protect, async (req, res) => {
 router.delete("/expenses/:id", protect, async (req, res) => {
   await Expense.findByIdAndDelete(req.params.id); res.json({ success: true });
 });
+
+// ADD MEMBER - UPDATED WITH LIMIT
 router.post("/:id/members", protect, async (req, res) => {
   const group = await Group.findById(req.params.id);
+  
+  // CHECK: Limit to 4 members (You + 3 others)
+  if (group.members.length >= 4) {
+    return res.status(400).json({ error: "Member limit reached. You can only add up to 3 members." });
+  }
+
   const colors = ["bg-red-500", "bg-green-500", "bg-blue-500", "bg-purple-500", "bg-orange-500"];
   group.members.push({ name: req.body.name, avatarColor: colors[Math.floor(Math.random()*colors.length)] });
-  await group.save(); res.json(group);
+  await group.save(); 
+  res.json(group);
 });
+
 router.delete("/:id/members/:memberId", protect, async (req, res) => {
   const group = await Group.findById(req.params.id);
   const has = await Expense.findOne({ group: group._id, $or: [{ payer: req.params.memberId }, { "splits.user": req.params.memberId }] });
