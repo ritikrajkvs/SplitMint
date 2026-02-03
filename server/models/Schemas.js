@@ -1,4 +1,3 @@
-// Mongoose schemas placeholder
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
@@ -9,20 +8,21 @@ const userSchema = new mongoose.Schema({
 
 const groupSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Max 3 participants + primary [cite: 5]
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], // Max 4 total
+  createdAt: { type: Date, default: Date.now }
 });
 
 const expenseSchema = new mongoose.Schema({
-  description: String,
-  amount: Number,
+  description: { type: String, required: true },
+  amount: { type: Number, required: true },
+  payer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', required: true },
   date: { type: Date, default: Date.now },
-  payer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group' },
-  splitType: { type: String, enum: ['EQUAL', 'EXACT', 'PERCENT'], default: 'EQUAL' }, // [cite: 16]
+  // We store how much each person OWES
   splits: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    amount: Number // Amount this user OWEs
+    amount: { type: Number } 
   }]
 });
 
