@@ -5,7 +5,7 @@ const cors = require("cors");
 
 const app = express();
 
-// 1. CORS Configuration (Allows Frontend to talk to Backend)
+// 1. CORS Configuration
 app.use(cors({
   origin: "https://cozy-seahorse-f5aa60.netlify.app", // Your Netlify URL
   credentials: true,
@@ -21,11 +21,10 @@ mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.error("❌ MongoDB Error:", err));
 
-// 4. Routes (THE CRITICAL PART)
-// We wrap in try-catch so if a file is missing, the server logs it instead of crashing
+// 4. Routes (THE CRITICAL FIX)
 try {
-  app.use("/api", require("./routes/auth")); // Login/Signup
-  app.use("/api/groups", require("./routes/groups")); // <--- THIS LINE WAS LIKELY MISSING
+  app.use("/api", require("./routes/auth")); 
+  app.use("/api/groups", require("./routes/groups")); // <--- THIS LINE WAS MISSING
 } catch (error) {
   console.error("⚠️ Route loading error:", error.message);
 }
