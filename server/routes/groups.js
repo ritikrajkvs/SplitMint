@@ -3,19 +3,21 @@ const router = express.Router();
 const { Group, Expense } = require("../models/Schemas");
 const { protect } = require("../middleware/authMiddleware");
 
-// --- 🤖 MINTSENSE AI ENGINE (Rule-Based NLP) ---
+// --- 🤖 MINTSENSE AI ENGINE ---
 const mintSenseParser = (text, members) => {
+  if (!text) return null;
   const lowerText = text.toLowerCase();
   
-  // 1. Extract Amount (First number found)
+  // 1. Extract Amount (Looks for numbers like 500, 50.5, etc)
   const amountMatch = text.match(/(\d+(\.\d+)?)/);
   const amount = amountMatch ? parseFloat(amountMatch[0]) : 0;
 
-  // 2. Extract Payer (Match against member names)
-  let payer = members[0]._id.toString(); // Default to first member
+  // 2. Extract Payer (Matches names in your group)
+  // Default to the first member (usually Admin) if no name found
+  let payer = members[0]._id.toString(); 
   let payerName = members[0].name;
   
-  // Sort members by name length desc to match "Alice Smith" before "Alice"
+  // check names longest to shortest to avoid partial matches
   const sortedMembers = [...members].sort((a, b) => b.name.length - a.name.length);
   
   for (const m of sortedMembers) {
@@ -28,11 +30,11 @@ const mintSenseParser = (text, members) => {
 
   // 3. Auto-Categorize
   const keywords = {
-    "Food": ["pizza", "burger", "lunch", "dinner", "breakfast", "coffee", "tea", "snacks", "drink", "food", "restaurant"],
-    "Travel": ["uber", "ola", "cab", "taxi", "bus", "train", "flight", "ticket", "fuel", "petrol", "diesel"],
-    "Entertainment": ["movie", "film", "cinema", "netflix", "game", "bowling", "concert", "show"],
-    "Utilities": ["bill", "rent", "electricity", "wifi", "recharge", "mobile"],
-    "Shopping": ["grocery", "clothes", "shoe", "mall", "market"]
+    "Food": ["pizza", "burger", "lunch", "dinner", "breakfast", "coffee", "tea", "snacks", "restaurant", "food", "swiggy", "zomato"],
+    "Travel": ["uber", "ola", "cab", "taxi", "bus", "train", "flight", "ticket", "fuel", "petrol", "diesel", "trip"],
+    "Entertainment": ["movie", "film", "cinema", "netflix", "game", "bowling", "concert", "show", "party"],
+    "Utilities": ["bill", "rent", "electricity", "wifi", "recharge", "mobile", "gas", "water"],
+    "Shopping": ["grocery", "clothes", "shoe", "mall", "market", "amazon", "flipkart"]
   };
   
   let category = "General";
@@ -43,7 +45,7 @@ const mintSenseParser = (text, members) => {
     }
   }
 
-  // 4. Clean Description (Remove amount, payer, and filler words)
+  // 4. Clean Description
   let description = text
     .replace(new RegExp(amount, 'g'), '') // Remove amount
     .replace(new RegExp(payerName, 'gi'), '') // Remove payer name
@@ -51,45 +53,36 @@ const mintSenseParser = (text, members) => {
     .replace(/\s+/g, ' ') // Remove extra spaces
     .trim();
 
-  // If description became empty (e.g. input was just "Pizza 500"), use Category
-  if (description.length < 2) description = category;
-
-  // Capitalize first letter
+  if (description.length < 2) description = category; // Fallback
   description = description.charAt(0).toUpperCase() + description.slice(1);
 
   return { description, amount, payer, category };
 };
 
-// --- BALANCE ENGINE ---
-const calculateSettlements = (balances) => {
-  let debtors = [];
-  let creditors = [];
-  Object.keys(balances).forEach(id => {
-    const amount = balances[id];
-    if (amount < -0.01) debtors.push({ id, amount });
-    if (amount > 0.01) creditors.push({ id, amount });
-  });
-  debtors.sort((a, b) => a.amount - b.amount);
-  creditors.sort((a, b) => b.amount - a.amount);
-  
-  const settlements = [];
-  let i = 0; let j = 0;
-  while (i < debtors.length && j < creditors.length) {
-    const debtor = debtors[i];
-    const creditor = creditors[j];
-    const amount = Math.min(Math.abs(debtor.amount), creditor.amount);
-    if (amount > 0) settlements.push({ from: debtor.id, to: creditor.id, amount: parseFloat(amount.toFixed(2)) });
-    debtor.amount += amount;
-    creditor.amount -= amount;
-    if (Math.abs(debtor.amount) < 0.01) i++;
-    if (creditor.amount < 0.01) j++;
-  }
-  return settlements;
-};
-
 // --- ROUTES ---
 
-// 1. GET GROUP
+// 1. MINTSENSE AI ROUTE (Must be defined before generic routes)
+router.post("/:id/mintsense", protect, async (req, res) => {
+  try {
+    const { text } = req.body;
+    console.log("AI Request:", text); // Debug log
+
+    const group = await Group.findById(req.params.id);
+    if (!group) return res.status(404).json({ error: "Group not found" });
+
+    const parsedData = mintSenseParser(text, group.members);
+    
+    // Debug log to see what AI found
+    console.log("AI Result:", parsedData);
+    
+    res.json(parsedData);
+  } catch (error) {
+    console.error("AI Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. GET GROUP
 router.get("/:id", protect, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);
@@ -97,9 +90,10 @@ router.get("/:id", protect, async (req, res) => {
     if (group.createdBy.toString() !== req.user._id.toString()) return res.status(403).json({ error: "Access denied" });
 
     const expenses = await Expense.find({ group: group._id }).sort({ date: -1 });
+    
+    // Calculate Balances
     const balances = {};
     group.members.forEach(m => balances[m._id.toString()] = 0);
-
     expenses.forEach(exp => {
       if (balances[exp.payer] !== undefined) balances[exp.payer] += exp.amount;
       exp.splits.forEach(s => {
@@ -107,37 +101,45 @@ router.get("/:id", protect, async (req, res) => {
       });
     });
 
+    // Settlements Logic
+    let debtors = [], creditors = [];
+    Object.keys(balances).forEach(id => {
+      if (balances[id] < -0.01) debtors.push({ id, amount: balances[id] });
+      if (balances[id] > 0.01) creditors.push({ id, amount: balances[id] });
+    });
+    debtors.sort((a,b) => a.amount - b.amount);
+    creditors.sort((a,b) => b.amount - a.amount);
+    
+    const settlements = [];
+    let i=0, j=0;
+    while(i < debtors.length && j < creditors.length) {
+      const d = debtors[i], c = creditors[j];
+      const amt = Math.min(Math.abs(d.amount), c.amount);
+      if(amt > 0) settlements.push({ from: d.id, to: c.id, amount: parseFloat(amt.toFixed(2)) });
+      d.amount += amt; c.amount -= amt;
+      if(Math.abs(d.amount) < 0.01) i++;
+      if(c.amount < 0.01) j++;
+    }
+
     const enrichedExpenses = expenses.map(exp => {
       const payerName = group.members.find(m => m._id.toString() === exp.payer)?.name || "Unknown";
       return { ...exp.toObject(), payerName };
     });
 
-    res.json({ group, expenses: enrichedExpenses, balances, settlements: calculateSettlements(balances) });
+    res.json({ group, expenses: enrichedExpenses, balances, settlements });
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// 2. MINTSENSE AI PARSER (Requirement 8)
-router.post("/:id/mintsense", protect, async (req, res) => {
-  try {
-    const { text } = req.body;
-    const group = await Group.findById(req.params.id);
-    if (!group) return res.status(404).json({ error: "Group not found" });
-
-    // Run AI Engine
-    const parsedData = mintSenseParser(text, group.members);
-    res.json(parsedData);
-  } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// 3. ADD EXPENSE (With Category)
+// 3. ADD EXPENSE
 router.post("/:id/expenses", protect, async (req, res) => {
   try {
     const { description, amount, splitType, splits, payer, category } = req.body;
     const group = await Group.findById(req.params.id);
+    
     const payerId = payer || group.members[0]._id.toString();
     const total = parseFloat(amount);
-    
     let finalSplits = [];
+
     if (splitType === 'EQUAL') {
       let share = Math.floor((total / group.members.length) * 100) / 100;
       let remainder = total - (share * group.members.length);
@@ -148,9 +150,8 @@ router.post("/:id/expenses", protect, async (req, res) => {
       finalSplits = splits.map(s => ({ user: s.user, amount: (total * Number(s.value)) / 100 }));
     }
 
-    const expense = await Expense.create({ 
-      description, amount: total, payer: payerId, group: group._id, splitType, splits: finalSplits,
-      category: category || "General" // Save Category
+    const expense = await Expense.create({
+      description, amount: total, payer: payerId, group: group._id, splitType, splits: finalSplits, category: category || "General"
     });
     res.status(201).json(expense);
   } catch (error) { res.status(500).json({ error: error.message }); }
@@ -165,54 +166,39 @@ router.put("/expenses/:id", protect, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// STANDARD CRUD ROUTES
+// CRUD HELPERS
 router.post("/", protect, async (req, res) => {
-  const group = await Group.create({
-    name: req.body.name, createdBy: req.user._id,
-    members: [{ name: "You", isAdmin: true, avatarColor: "bg-blue-500" }]
-  });
+  const group = await Group.create({ name: req.body.name, createdBy: req.user._id, members: [{ name: "You", isAdmin: true, avatarColor: "bg-blue-500" }] });
   res.status(201).json(group);
 });
-
 router.put("/:id", protect, async (req, res) => {
   const group = await Group.findByIdAndUpdate(req.params.id, { name: req.body.name }, { new: true });
   res.json(group);
 });
-
+router.delete("/:id", protect, async (req, res) => {
+  await Expense.deleteMany({ group: req.params.id }); await Group.findByIdAndDelete(req.params.id); res.json({ success: true });
+});
+router.delete("/expenses/:id", protect, async (req, res) => {
+  await Expense.findByIdAndDelete(req.params.id); res.json({ success: true });
+});
 router.post("/:id/members", protect, async (req, res) => {
   const group = await Group.findById(req.params.id);
-  if (group.members.length >= 4) return res.status(400).json({ error: "Group full" });
-  // Random Color
-  const colors = ["bg-red-500", "bg-green-500", "bg-purple-500", "bg-yellow-500", "bg-pink-500", "bg-indigo-500"];
-  const color = colors[Math.floor(Math.random() * colors.length)];
-  group.members.push({ name: req.body.name, avatarColor: color });
-  await group.save();
-  res.json(group);
+  const colors = ["bg-red-500", "bg-green-500", "bg-blue-500"];
+  group.members.push({ name: req.body.name, avatarColor: colors[Math.floor(Math.random()*colors.length)] });
+  await group.save(); res.json(group);
 });
-
 router.delete("/:id/members/:memberId", protect, async (req, res) => {
   const group = await Group.findById(req.params.id);
-  const hasExpenses = await Expense.findOne({ group: group._id, $or: [{ payer: req.params.memberId }, { "splits.user": req.params.memberId }] });
-  if (hasExpenses) return res.status(400).json({ error: "Member has expenses" });
-  group.members.pull({ _id: req.params.memberId });
-  await group.save();
-  res.json(group);
+  const has = await Expense.findOne({ group: group._id, $or: [{ payer: req.params.memberId }, { "splits.user": req.params.memberId }] });
+  if(has) return res.status(400).json({ error: "Has expenses" });
+  group.members.pull({ _id: req.params.memberId }); await group.save(); res.json(group);
 });
-
-router.delete("/expenses/:id", protect, async (req, res) => {
-  await Expense.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
+router.put("/:id/members/:memberId", protect, async (req, res) => {
+  const group = await Group.findById(req.params.id);
+  const m = group.members.id(req.params.memberId); m.name = req.body.name; await group.save(); res.json(group);
 });
-
-router.delete("/:id", protect, async (req, res) => {
-  await Expense.deleteMany({ group: req.params.id });
-  await Group.findByIdAndDelete(req.params.id);
-  res.json({ success: true });
-});
-
 router.get("/", protect, async (req, res) => {
-  const groups = await Group.find({ createdBy: req.user._id });
-  res.json(groups);
+  const groups = await Group.find({ createdBy: req.user._id }); res.json(groups);
 });
 
 module.exports = router;
