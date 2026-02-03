@@ -4,6 +4,7 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
+  avatarColor: { type: String, default: "bg-blue-500" } // Requirement: Optional Color
 });
 
 const groupSchema = new mongoose.Schema({
@@ -20,7 +21,7 @@ const expenseSchema = new mongoose.Schema({
   payer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', required: true },
   
-  // NEW: Support for different split types
+  // Requirement: Supported Split Modes
   splitType: { 
     type: String, 
     enum: ['EQUAL', 'EXACT', 'PERCENT'], 
@@ -29,8 +30,8 @@ const expenseSchema = new mongoose.Schema({
   
   splits: [{
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    amount: { type: Number }, // How much this person OWES
-    percent: { type: Number } // Optional: Store % if needed
+    amount: { type: Number }, // The exact amount this user OWES
+    percent: { type: Number } 
   }]
 });
 
