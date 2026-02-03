@@ -1,27 +1,36 @@
 const mongoose = require('mongoose');
 
+// 1. User (Only for YOU, the Admin)
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
-  avatarColor: { type: String, default: "bg-blue-500" } // Requirement: Optional Color
+});
+
+// 2. Group (Contains Embedded Members)
+const memberSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  avatarColor: { type: String, default: "bg-gray-400" },
+  isAdmin: { type: Boolean, default: false } // To identify YOU
 });
 
 const groupSchema = new mongoose.Schema({
   name: { type: String, required: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], 
+  members: [memberSchema], // Embedded list of people
   createdAt: { type: Date, default: Date.now }
 });
 
+// 3. Expense (Links to Group Members, NOT Users)
 const expenseSchema = new mongoose.Schema({
   description: { type: String, required: true },
   amount: { type: Number, required: true },
   date: { type: Date, default: Date.now },
-  payer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', required: true },
   
-  // Requirement: Supported Split Modes
+  // Payer is just a Member ID string from the Group array
+  payer: { type: String, required: true }, 
+  
   splitType: { 
     type: String, 
     enum: ['EQUAL', 'EXACT', 'PERCENT'], 
@@ -29,8 +38,8 @@ const expenseSchema = new mongoose.Schema({
   },
   
   splits: [{
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    amount: { type: Number }, // The exact amount this user OWES
+    user: { type: String, required: true }, // Member ID
+    amount: { type: Number },
     percent: { type: Number } 
   }]
 });
