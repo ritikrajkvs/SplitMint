@@ -3,21 +3,32 @@ const router = express.Router();
 const { Group, Expense } = require("../models/Schemas");
 const { protect } = require("../middleware/authMiddleware");
 
-// --- 🤖 MINTSENSE AI ENGINE ---
+// --- 🧠 IMPROVED MINTSENSE AI ENGINE ---
+
+const STOP_WORDS = [
+  "i", "me", "my", "myself", "we", "our", "ours", "ourselves", "you", "your", "yours", "yourself", "yourselves",
+  "he", "him", "his", "himself", "she", "her", "hers", "herself", "it", "its", "itself", "they", "them", "their", "theirs", "themselves",
+  "what", "which", "who", "whom", "this", "that", "these", "those", "am", "is", "are", "was", "were", "be", "been", "being",
+  "have", "has", "had", "having", "do", "does", "did", "doing", "a", "an", "the", "and", "but", "if", "or", "because", "as", "until",
+  "while", "of", "at", "by", "for", "with", "about", "against", "between", "into", "through", "during", "before", "after", "above", "below",
+  "to", "from", "up", "down", "in", "out", "on", "off", "over", "under", "again", "further", "then", "once", "here", "there",
+  "when", "where", "why", "how", "all", "any", "both", "each", "few", "more", "most", "other", "some", "such", "no", "nor", "not",
+  "only", "own", "same", "so", "than", "too", "very", "s", "t", "can", "will", "just", "don", "should", "now", "paid", "spent", "cost"
+];
+
 const mintSenseParser = (text, members) => {
   if (!text) return null;
   const lowerText = text.toLowerCase();
   
-  // 1. Extract Amount (Looks for numbers like 500, 50.5, etc)
+  // 1. Extract Amount (Find first number)
   const amountMatch = text.match(/(\d+(\.\d+)?)/);
   const amount = amountMatch ? parseFloat(amountMatch[0]) : 0;
 
-  // 2. Extract Payer (Matches names in your group)
-  // Default to the first member (usually Admin) if no name found
+  // 2. Extract Payer (Match against Member Names)
   let payer = members[0]._id.toString(); 
   let payerName = members[0].name;
   
-  // check names longest to shortest to avoid partial matches
+  // Sort names longest to shortest to catch "Alice Smith" before "Alice"
   const sortedMembers = [...members].sort((a, b) => b.name.length - a.name.length);
   
   for (const m of sortedMembers) {
@@ -28,13 +39,13 @@ const mintSenseParser = (text, members) => {
     }
   }
 
-  // 3. Auto-Categorize
+  // 3. Auto-Categorize (Expanded Dictionary)
   const keywords = {
-    "Food": ["pizza", "burger", "lunch", "dinner", "breakfast", "coffee", "tea", "snacks", "restaurant", "food", "swiggy", "zomato"],
-    "Travel": ["uber", "ola", "cab", "taxi", "bus", "train", "flight", "ticket", "fuel", "petrol", "diesel", "trip"],
-    "Entertainment": ["movie", "film", "cinema", "netflix", "game", "bowling", "concert", "show", "party"],
-    "Utilities": ["bill", "rent", "electricity", "wifi", "recharge", "mobile", "gas", "water"],
-    "Shopping": ["grocery", "clothes", "shoe", "mall", "market", "amazon", "flipkart"]
+    "Food": ["pizza", "burger", "lunch", "dinner", "breakfast", "coffee", "tea", "snacks", "restaurant", "swiggy", "zomato", "kfc", "mcdonalds", "drink", "beer", "bar", "food"],
+    "Travel": ["uber", "ola", "cab", "taxi", "bus", "train", "flight", "ticket", "fuel", "petrol", "diesel", "trip", "gas", "metro"],
+    "Entertainment": ["movie", "film", "cinema", "netflix", "game", "bowling", "concert", "show", "party", "club", "spotify"],
+    "Utilities": ["bill", "rent", "electricity", "wifi", "recharge", "mobile", "water", "internet", "maintenance"],
+    "Shopping": ["grocery", "clothes", "shoe", "mall", "market", "amazon", "flipkart", "shop", "store", "buy"]
   };
   
   let category = "General";
@@ -45,40 +56,44 @@ const mintSenseParser = (text, members) => {
     }
   }
 
-  // 4. Clean Description
-  let description = text
-    .replace(new RegExp(amount, 'g'), '') // Remove amount
-    .replace(new RegExp(payerName, 'gi'), '') // Remove payer name
-    .replace(/\b(paid|by|for|at|in|on)\b/gi, '') // Remove filler words
-    .replace(/\s+/g, ' ') // Remove extra spaces
-    .trim();
+  // 4. CLEAN DESCRIPTION (Remove Amount, Name, and Stop Words)
+  
+  // Remove amount
+  let cleanText = text.replace(new RegExp(amount, 'g'), '');
+  
+  // Remove payer name (case insensitive)
+  cleanText = cleanText.replace(new RegExp(payerName, 'gi'), '');
 
-  if (description.length < 2) description = category; // Fallback
+  // Split into words and filter out Stop Words
+  let words = cleanText.split(/\s+/);
+  
+  let filteredWords = words.filter(w => {
+    const cleanWord = w.toLowerCase().replace(/[^a-z0-9]/g, ''); // Remove punctuation like "dinner," -> "dinner"
+    return !STOP_WORDS.includes(cleanWord) && cleanWord.length > 0;
+  });
+
+  let description = filteredWords.join(" ");
+
+  // Final Cleanup
   description = description.charAt(0).toUpperCase() + description.slice(1);
+  if (description.length < 2) description = category; // Fallback if everything was removed
 
   return { description, amount, payer, category };
 };
 
 // --- ROUTES ---
 
-// 1. MINTSENSE AI ROUTE (Must be defined before generic routes)
+// 1. AI ROUTE
 router.post("/:id/mintsense", protect, async (req, res) => {
   try {
     const { text } = req.body;
-    console.log("AI Request:", text); // Debug log
-
     const group = await Group.findById(req.params.id);
     if (!group) return res.status(404).json({ error: "Group not found" });
 
-    const parsedData = mintSenseParser(text, group.members);
-    
-    // Debug log to see what AI found
-    console.log("AI Result:", parsedData);
-    
-    res.json(parsedData);
+    const result = mintSenseParser(text, group.members);
+    res.json(result);
   } catch (error) {
-    console.error("AI Error:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: "AI Failed" });
   }
 });
 
@@ -90,18 +105,13 @@ router.get("/:id", protect, async (req, res) => {
     if (group.createdBy.toString() !== req.user._id.toString()) return res.status(403).json({ error: "Access denied" });
 
     const expenses = await Expense.find({ group: group._id }).sort({ date: -1 });
-    
-    // Calculate Balances
     const balances = {};
     group.members.forEach(m => balances[m._id.toString()] = 0);
     expenses.forEach(exp => {
       if (balances[exp.payer] !== undefined) balances[exp.payer] += exp.amount;
-      exp.splits.forEach(s => {
-        if (balances[s.user] !== undefined) balances[s.user] -= s.amount;
-      });
+      exp.splits.forEach(s => { if (balances[s.user] !== undefined) balances[s.user] -= s.amount; });
     });
 
-    // Settlements Logic
     let debtors = [], creditors = [];
     Object.keys(balances).forEach(id => {
       if (balances[id] < -0.01) debtors.push({ id, amount: balances[id] });
@@ -135,11 +145,9 @@ router.post("/:id/expenses", protect, async (req, res) => {
   try {
     const { description, amount, splitType, splits, payer, category } = req.body;
     const group = await Group.findById(req.params.id);
-    
     const payerId = payer || group.members[0]._id.toString();
     const total = parseFloat(amount);
     let finalSplits = [];
-
     if (splitType === 'EQUAL') {
       let share = Math.floor((total / group.members.length) * 100) / 100;
       let remainder = total - (share * group.members.length);
@@ -183,7 +191,7 @@ router.delete("/expenses/:id", protect, async (req, res) => {
 });
 router.post("/:id/members", protect, async (req, res) => {
   const group = await Group.findById(req.params.id);
-  const colors = ["bg-red-500", "bg-green-500", "bg-blue-500"];
+  const colors = ["bg-red-500", "bg-green-500", "bg-blue-500", "bg-purple-500", "bg-orange-500"];
   group.members.push({ name: req.body.name, avatarColor: colors[Math.floor(Math.random()*colors.length)] });
   await group.save(); res.json(group);
 });
