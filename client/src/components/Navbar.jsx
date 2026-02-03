@@ -1,15 +1,13 @@
 import { useContext } from 'react';
 import { AuthContext } from '../context/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 
 export default function Navbar() {
   const { user, logout } = useContext(AuthContext);
-  const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
+  // Determine if the current page is the Login page
+  const isLoginPage = location.pathname === '/login';
 
   return (
     <nav className="bg-slate-900 border-b border-slate-800 sticky top-0 z-50">
@@ -41,27 +39,30 @@ export default function Navbar() {
                   <p className="text-sm text-slate-100 font-semibold">{user.name}</p>
                 </div>
                 <button 
-                  onClick={handleLogout} 
+                  onClick={logout}
                   className="text-sm font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-red-600/20 hover:text-red-400 px-4 py-2 rounded-lg border border-slate-700 hover:border-red-500/50 transition-all duration-200"
                 >
                   Logout
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-4">
-                 <Link 
-                  to="/login" 
-                  className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
-                >
-                  Sign In
-                </Link>
-                 <Link 
-                  to="/signup" 
-                  className="text-sm font-medium bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-lg shadow-lg shadow-green-900/20 transition-all active:scale-95"
-                >
-                  Get Started
-                </Link>
-              </div>
+              // Hide these links if the user is on the login page
+              !isLoginPage && (
+                <div className="flex items-center gap-4">
+                   <Link 
+                    to="/login" 
+                    className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
+                  >
+                    Sign In
+                  </Link>
+                   <Link 
+                    to="/signup" 
+                    className="text-sm font-medium bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-lg shadow-lg shadow-green-900/20 transition-all active:scale-95"
+                  >
+                    Get Started
+                  </Link>
+                </div>
+              )
             )}
           </div>
         </div>
