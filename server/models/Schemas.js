@@ -7,28 +7,29 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
 });
 
-// 2. Group (Contains Embedded Members)
+// 2. Group (With Embedded Members)
 const memberSchema = new mongoose.Schema({
   name: { type: String, required: true },
   avatarColor: { type: String, default: "bg-gray-400" },
-  isAdmin: { type: Boolean, default: false } // To identify YOU
+  isAdmin: { type: Boolean, default: false }, // To mark YOU
+  joinedAt: { type: Date, default: Date.now }
 });
 
 const groupSchema = new mongoose.Schema({
   name: { type: String, required: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  members: [memberSchema], // Embedded list of people
+  members: [memberSchema], // Stores people like [{name: "Bob", ...}, {name: "Alice", ...}]
   createdAt: { type: Date, default: Date.now }
 });
 
-// 3. Expense (Links to Group Members, NOT Users)
+// 3. Expense
 const expenseSchema = new mongoose.Schema({
   description: { type: String, required: true },
   amount: { type: Number, required: true },
   date: { type: Date, default: Date.now },
   group: { type: mongoose.Schema.Types.ObjectId, ref: 'Group', required: true },
   
-  // Payer is just a Member ID string from the Group array
+  // Payer is the _id of the member inside the group
   payer: { type: String, required: true }, 
   
   splitType: { 
@@ -38,7 +39,7 @@ const expenseSchema = new mongoose.Schema({
   },
   
   splits: [{
-    user: { type: String, required: true }, // Member ID
+    user: { type: String, required: true }, // Member _id
     amount: { type: Number },
     percent: { type: Number } 
   }]
