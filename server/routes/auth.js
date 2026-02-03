@@ -2,76 +2,58 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
-// FIX: Importing 'User' from your Schemas.js file
 const { User } = require("../models/Schemas");
 
-// --- SIGNUP ROUTE ---
+// Helper to generate Token
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET || "secret123", {
+    expiresIn: "30d",
+  });
+};
+
+// SIGNUP
 router.post("/signup", async (req, res) => {
   try {
-    console.log("Signup Request:", req.body); // Logs to Render Dashboard
-
-    // 1. Extract Data
     const { name, email, password } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ error: "All fields required" });
 
-    // 2. Validate
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: "Please provide name, email, and password" });
-    }
+    const userExists = await User.findOne({ email });
+    if (userExists) return res.status(400).json({ error: "User already exists" });
 
-    // 3. Check for Duplicate Email
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: "User already exists with this email" });
-    }
-
-    // 4. Hash Password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 5. Save to Database
-    const newUser = new User({
-      name,
-      email,
-      password: hashedPassword
+    const newUser = await User.create({ name, email, password: hashedPassword });
+
+    res.status(201).json({
+      _id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+      token: generateToken(newUser._id), // <--- NOW SENDING TOKEN
     });
-
-    await newUser.save();
-
-    // 6. Respond
-    res.status(201).json({ 
-      message: "User created successfully",
-      user: { id: newUser._id, name: newUser.name, email: newUser.email }
-    });
-
   } catch (error) {
-    console.error("Signup Error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: error.message });
   }
 });
 
-// --- LOGIN ROUTE ---
+// LOGIN
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    // 1. Find User
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ error: "User not found" });
 
-    // 2. Check Password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ error: "Invalid credentials" });
-
-    // 3. Success
-    res.json({
-      message: "Login successful",
-      user: { id: user._id, name: user.name, email: user.email }
-    });
-
+    if (user && (await bcrypt.compare(password, user.password))) {
+      res.json({
+        _id: user.id,
+        name: user.name,
+        email: user.email,
+        token: generateToken(user._id), // <--- NOW SENDING TOKEN
+      });
+    } else {
+      res.status(400).json({ error: "Invalid credentials" });
+    }
   } catch (error) {
-    console.error("Login Error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(500).json({ error: error.message });
   }
 });
 
