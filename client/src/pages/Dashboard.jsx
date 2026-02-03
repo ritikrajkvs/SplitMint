@@ -28,14 +28,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 font-sans">
-      {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-xl">S</div>
-          <span className="font-bold text-xl tracking-tight text-gray-900">SplitMint</span>
-        </div>
-        <button onClick={() => { localStorage.clear(); window.location.href='/login' }} className="text-sm font-medium text-gray-500 hover:text-gray-900 transition">Log Out</button>
-      </nav>
+      {/* Redundant Navbar removed from here */}
 
       <main className="max-w-5xl mx-auto p-8">
         {/* Header Section */}
