@@ -46,3 +46,26 @@ export default function Navbar() {
                 >
                   Logout
                 </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-4">
+                 <Link 
+                  to="/login" 
+                  className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
+                >
+                  Sign In
+                </Link>
+                 <Link 
+                  to="/signup" 
+                  className="text-sm font-medium bg-green-600 hover:bg-green-500 text-white px-5 py-2.5 rounded-lg shadow-lg shadow-green-900/20 transition-all active:scale-95"
+                >
+                  Get Started
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </nav>
+  );
+}
