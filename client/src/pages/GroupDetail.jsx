@@ -2,8 +2,14 @@ import { useEffect, useState, useContext } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../api";
 import { AuthContext } from "../context/AuthContext";
+// NEW: Import Recharts
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
+// Tailwind Colors for avatars (Backend logic)
 const KEEP_COLORS = ["bg-red-500", "bg-orange-500", "bg-amber-500", "bg-green-500", "bg-blue-500", "bg-purple-500", "bg-pink-500", "bg-gray-500"];
+
+// Hex Colors for Charts (Matching Tailwind)
+const CHART_COLORS = ["#EF4444", "#F97316", "#F59E0B", "#22C55E", "#3B82F6", "#A855F7", "#EC4899", "#6B7280"];
 
 export default function GroupDetail() {
   const { id } = useParams();
@@ -13,9 +19,11 @@ export default function GroupDetail() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   
+  // Toggles
   const [showMemberForm, setShowMemberForm] = useState(false);
   const [editingGroup, setEditingGroup] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
+  const [chartMode, setChartMode] = useState("MEMBER"); // NEW: Toggle between 'MEMBER' and 'CATEGORY'
 
   const [groupName, setGroupName] = useState("");
   
@@ -27,7 +35,7 @@ export default function GroupDetail() {
   const [splitType, setSplitType] = useState("EQUAL");
   const [customSplits, setCustomSplits] = useState({});
 
-  // 🤖 AI State
+  // AI State
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [highlightAdd, setHighlightAdd] = useState(false);
@@ -52,34 +60,30 @@ export default function GroupDetail() {
 
   useEffect(() => { fetchData(); }, [id]);
 
-  // --- 🤖 MINTSENSE AI ACTION ---
+  // --- 🤖 MINTSENSE AI ---
   const handleAiParse = async (e) => {
     e.preventDefault();
     if(!aiPrompt) return;
     setAiLoading(true);
     try {
       const res = await api.post(`/api/groups/${id}/mintsense`, { text: aiPrompt });
-      
       setDesc(res.data.description);
       setAmount(res.data.amount);
       setPayer(res.data.payer);
       setCategory(res.data.category);
       setAiPrompt(""); 
-      
       const formElement = document.getElementById("expenseForm");
       if(formElement) formElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      
       setHighlightAdd(true);
       setTimeout(() => setHighlightAdd(false), 3000);
-
-    } catch (err) { alert("AI could not understand that. Try: 'Pizza 500 by Alice'"); }
+    } catch (err) { alert("AI Error. Try: 'Pizza 500 by Alice'"); }
     finally { setAiLoading(false); }
   };
 
   // --- ACTIONS ---
   const updateGroupName = async () => { try { await api.put(`/api/groups/${id}`, { name: groupName }); setEditingGroup(false); fetchData(); } catch (err) { alert("Failed"); } };
   const addMember = async (e) => { e.preventDefault(); try { await api.post(`/api/groups/${id}/members`, { name: e.target.name.value }); setShowMemberForm(false); fetchData(); } catch (err) { alert(err.response?.data?.error); } };
-  const removeMember = async (mid) => { if(window.confirm("Remove member?")) { try { await api.delete(`/api/groups/${id}/members/${mid}`); fetchData(); } catch(e) { alert(e.response?.data?.error); } } };
+  const removeMember = async (mid) => { if(window.confirm("Remove?")) { try { await api.delete(`/api/groups/${id}/members/${mid}`); fetchData(); } catch(e) { alert(e.response?.data?.error); } } };
 
   const handleExpenseSubmit = async (e) => {
     e.preventDefault();
@@ -106,13 +110,29 @@ export default function GroupDetail() {
   if (loading) return <div className="p-10 text-center">Loading...</div>;
   if (!data) return <div className="p-10 text-center">Group Not Found</div>;
 
+  // --- CALCS ---
   const myMemberId = data.group.members.find(m => m.isAdmin)?._id || data.group.members[0]?._id;
   const myBalance = data.balances[myMemberId] || 0;
   const totalGroupSpend = data.expenses.reduce((sum, e) => sum + e.amount, 0);
+  
+  // 1. Contributions (Member Pie Data)
   const contributions = {};
   data.group.members.forEach(m => contributions[m._id] = 0);
   data.expenses.forEach(e => { if (contributions[e.payer] !== undefined) contributions[e.payer] += e.amount; });
+  
+  const memberChartData = data.group.members
+    .map(m => ({ name: m.name, value: contributions[m._id] }))
+    .filter(d => d.value > 0);
 
+  // 2. Categories (Category Pie Data)
+  const categoryStats = {};
+  data.expenses.forEach(e => {
+    const cat = e.category || "General";
+    categoryStats[cat] = (categoryStats[cat] || 0) + e.amount;
+  });
+  const categoryChartData = Object.keys(categoryStats).map(k => ({ name: k, value: categoryStats[k] }));
+
+  // Filters
   const filteredExpenses = data.expenses.filter(e => {
     const matchesText = e.description.toLowerCase().includes(search.toLowerCase());
     const matchesUser = filterUser === "ALL" || e.payer === filterUser;
@@ -123,6 +143,7 @@ export default function GroupDetail() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto bg-gray-50 min-h-screen">
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-white p-6 rounded-lg shadow-sm">
         <div className="flex-1">
           {editingGroup ? (
@@ -143,6 +164,7 @@ export default function GroupDetail() {
         </div>
       </div>
 
+      {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow border-l-4 border-blue-500">
           <p className="text-gray-500 text-sm font-semibold uppercase">Total Spend</p>
@@ -161,11 +183,9 @@ export default function GroupDetail() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
         {/* LEFT COLUMN: Actions */}
         <div className="space-y-6">
-          
-          {/* 🤖 AI INPUT BAR */}
+          {/* AI BAR */}
           <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6 rounded-lg shadow text-white">
             <h3 className="font-bold flex items-center gap-2">✨ MintSense AI</h3>
             <p className="text-xs opacity-90 mb-3">Try: "Pizza 500 paid by [Name]"</p>
@@ -176,12 +196,11 @@ export default function GroupDetail() {
                 value={aiPrompt}
                 onChange={e => setAiPrompt(e.target.value)}
               />
-              <button className="bg-white text-indigo-600 px-3 py-2 rounded font-bold text-sm hover:bg-gray-100">
-                {aiLoading ? "..." : "Go"}
-              </button>
+              <button className="bg-white text-indigo-600 px-3 py-2 rounded font-bold text-sm hover:bg-gray-100">{aiLoading ? "..." : "Go"}</button>
             </form>
           </div>
 
+          {/* Members */}
           <div className="bg-white p-6 rounded-lg shadow">
             <div className="flex justify-between items-center mb-4 border-b pb-2">
               <h3 className="font-bold text-gray-700">Members</h3>
@@ -206,6 +225,7 @@ export default function GroupDetail() {
             </ul>
           </div>
 
+          {/* Expense Form */}
           <div id="expenseForm" className={`bg-white p-6 rounded-lg shadow border transition-all duration-500 ${highlightAdd ? "border-green-400 shadow-green-100 ring-2 ring-green-100" : "border-gray-100"}`}>
             <h3 className="font-bold mb-4 text-gray-800">{editingExpense ? "Edit Expense" : "Add Expense"}</h3>
             <form onSubmit={handleExpenseSubmit} className="space-y-4">
@@ -216,14 +236,12 @@ export default function GroupDetail() {
                    {data.group.members.map(m => <option key={m._id} value={m._id}>{m.name}</option>)}
                 </select>
               </div>
-              
               <div className="flex gap-2 items-center">
                  <span className="text-xs text-gray-500 font-bold">Category:</span>
                  <select className="border p-1 rounded text-xs flex-1" value={category} onChange={e => setCategory(e.target.value)}>
                    {["General", "Food", "Travel", "Entertainment", "Utilities", "Shopping"].map(c => <option key={c} value={c}>{c}</option>)}
                  </select>
               </div>
-
               {!editingExpense && (
                 <>
                   <div className="flex gap-2">
@@ -243,7 +261,6 @@ export default function GroupDetail() {
                   )}
                 </>
               )}
-              
               <div className="flex gap-2 pt-2">
                  <button className={`w-full py-2 rounded font-bold shadow-sm transition-all duration-300 ${highlightAdd ? "bg-green-600 ring-4 ring-green-300 scale-105 shadow-green-200" : "bg-green-600 hover:bg-green-700 text-white"}`}>
                    {editingExpense ? "Update" : (highlightAdd ? "Parsed! Click to Save" : "Add")}
@@ -254,32 +271,48 @@ export default function GroupDetail() {
           </div>
         </div>
 
+        {/* MIDDLE & RIGHT: Dashboard */}
         <div className="lg:col-span-2 space-y-8">
+          
+          {/* NEW: PIE CHART ANALYTICS */}
           <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="font-bold text-gray-700 mb-4">Spending Shares</h3>
-            <div className="space-y-3">
-              {data.group.members.map(m => {
-                const paid = contributions[m._id] || 0;
-                const percent = totalGroupSpend > 0 ? (paid / totalGroupSpend) * 100 : 0;
-                return (
-                  <div key={m._id}>
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="font-semibold">{m.name}</span>
-                      <span className="text-gray-500">{percent.toFixed(1)}% (₹{paid})</span>
-                    </div>
-                    <div className="w-full bg-gray-100 rounded-full h-2.5">
-                      <div className={`h-2.5 rounded-full ${m.avatarColor?.replace('bg-', 'bg-') || 'bg-blue-500'}`} style={{ width: `${percent}%` }}></div>
-                    </div>
-                  </div>
-                )
-              })}
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-gray-700">Spending Analytics</h3>
+              <div className="flex bg-gray-100 p-1 rounded-lg">
+                <button onClick={()=>setChartMode("MEMBER")} className={`px-3 py-1 text-xs font-bold rounded ${chartMode==="MEMBER" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}>By Person</button>
+                <button onClick={()=>setChartMode("CATEGORY")} className={`px-3 py-1 text-xs font-bold rounded ${chartMode==="CATEGORY" ? "bg-white shadow text-blue-600" : "text-gray-500"}`}>By Category</button>
+              </div>
+            </div>
+            
+            <div className="h-64 w-full">
+              {(chartMode === "MEMBER" ? memberChartData : categoryChartData).length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartMode === "MEMBER" ? memberChartData : categoryChartData}
+                      cx="50%" cy="50%"
+                      innerRadius={60} outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {(chartMode === "MEMBER" ? memberChartData : categoryChartData).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `₹${value}`} />
+                    <Legend verticalAlign="middle" align="right" layout="vertical" />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-center text-gray-400 pt-24">No spending data yet.</p>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white p-6 rounded-lg shadow border-t-4 border-blue-400">
               <h3 className="font-bold text-gray-800 mb-4">Settlement Plan</h3>
-              {data.settlements.length === 0 ? <p className="text-gray-400 text-center italic py-4">Everyone is settled up! 🎉</p> : (
+              {data.settlements.length === 0 ? <p className="text-gray-400 text-center italic py-4">All settled! 🎉</p> : (
                 <table className="w-full text-sm">
                   <tbody>
                     {data.settlements.map((s, i) => {
