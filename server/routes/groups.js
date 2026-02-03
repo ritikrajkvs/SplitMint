@@ -3,15 +3,25 @@ const router = express.Router();
 const { Group, Expense } = require("../models/Schemas");
 const { protect } = require("../middleware/authMiddleware");
 
-// --- HELPER: Random Color Generator ---
-const getRandomColor = () => {
-  const colors = [
-    "bg-red-500", "bg-orange-500", "bg-amber-500", "bg-yellow-500", "bg-lime-500",
-    "bg-green-500", "bg-emerald-500", "bg-teal-500", "bg-cyan-500", "bg-sky-500",
-    "bg-blue-500", "bg-indigo-500", "bg-violet-500", "bg-purple-500", "bg-fuchsia-500",
-    "bg-pink-500", "bg-rose-500"
-  ];
-  return colors[Math.floor(Math.random() * colors.length)];
+// --- SMART COLOR SYSTEM ---
+const AVATAR_COLORS = [
+  "bg-red-500", "bg-orange-500", "bg-amber-500", "bg-yellow-500", "bg-lime-500",
+  "bg-green-500", "bg-emerald-500", "bg-teal-500", "bg-cyan-500", "bg-sky-500",
+  "bg-blue-500", "bg-indigo-500", "bg-violet-500", "bg-purple-500", "bg-fuchsia-500",
+  "bg-pink-500", "bg-rose-500"
+];
+
+// Helper: Pick a color that isn't used yet
+const getUniqueColor = (existingMembers) => {
+  const usedColors = existingMembers.map(m => m.avatarColor);
+  const available = AVATAR_COLORS.filter(c => !usedColors.includes(c));
+  
+  if (available.length > 0) {
+    // Pick random from available
+    return available[Math.floor(Math.random() * available.length)];
+  }
+  // If all taken, pick any random one
+  return AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
 };
 
 // --- BALANCE ENGINE ---
@@ -57,14 +67,12 @@ router.get("/:id", protect, async (req, res) => {
     const group = await Group.findById(req.params.id);
     if (!group) return res.status(404).json({ error: "Group not found" });
 
-    // Security: Only the creator can access
     if (group.createdBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({ error: "Access denied" });
     }
 
     const expenses = await Expense.find({ group: group._id }).sort({ date: -1 });
 
-    // Calculate Balances
     const balances = {};
     group.members.forEach(m => balances[m._id.toString()] = 0);
 
@@ -77,7 +85,6 @@ router.get("/:id", protect, async (req, res) => {
 
     const settlements = calculateSettlements(balances);
 
-    // Map names to expenses for frontend
     const enrichedExpenses = expenses.map(exp => {
       const payerName = group.members.find(m => m._id.toString() === exp.payer)?.name || "Unknown";
       return { ...exp.toObject(), payerName };
@@ -87,11 +94,14 @@ router.get("/:id", protect, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// 2. CREATE GROUP (Auto-adds "You")
+// 2. CREATE GROUP
 router.post("/", protect, async (req, res) => {
   try {
     const { name } = req.body;
     if (!name) return res.status(400).json({ error: "Name required" });
+
+    // Admin gets a unique color too
+    const adminColor = getUniqueColor([]);
 
     const group = await Group.create({
       name,
@@ -99,24 +109,28 @@ router.post("/", protect, async (req, res) => {
       members: [{
         name: "You",
         isAdmin: true,
-        avatarColor: getRandomColor()
+        avatarColor: adminColor
       }]
     });
     res.status(201).json(group);
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// 3. ADD MEMBER (By Name Only)
+// 3. ADD MEMBER (Unique Color Logic)
 router.post("/:id/members", protect, async (req, res) => {
   try {
     const { name } = req.body;
+    if (!name || name.trim() === "") return res.status(400).json({ error: "Name required" });
+
     const group = await Group.findById(req.params.id);
-    
     if (group.members.length >= 4) return res.status(400).json({ error: "Group is full (Max 4)" });
     
+    // Assign a color that isn't used yet
+    const newColor = getUniqueColor(group.members);
+
     group.members.push({
       name,
-      avatarColor: getRandomColor()
+      avatarColor: newColor
     });
 
     await group.save();
@@ -124,7 +138,7 @@ router.post("/:id/members", protect, async (req, res) => {
   } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// 4. EDIT MEMBER NAME
+// 4. EDIT MEMBER
 router.put("/:id/members/:memberId", protect, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);
@@ -142,13 +156,12 @@ router.delete("/:id/members/:memberId", protect, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);
     
-    // Check for linked expenses
     const hasExpenses = await Expense.findOne({ 
       group: group._id, 
       $or: [{ payer: req.params.memberId }, { "splits.user": req.params.memberId }]
     });
 
-    if (hasExpenses) return res.status(400).json({ error: "Cannot remove: Member has expenses." });
+    if (hasExpenses) return res.status(400).json({ error: "User has linked expenses." });
 
     group.members.pull({ _id: req.params.memberId });
     await group.save();
