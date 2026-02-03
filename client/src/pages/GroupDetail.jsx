@@ -62,6 +62,12 @@ export default function GroupDetail() {
     try {
       const res = await api.post(`/api/groups/${id}/mintsense`, { text: aiPrompt });
       
+      // FIX: Force "Add Expense" mode and reset splits
+      setEditingExpense(null); 
+      setSplitType("EQUAL");
+      setCustomSplits({});
+
+      // Populate form with AI results
       setDesc(res.data.description);
       setAmount(res.data.amount);
       setPayer(res.data.payer);
