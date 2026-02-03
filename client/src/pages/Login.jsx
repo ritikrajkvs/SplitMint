@@ -1,5 +1,5 @@
 import { useState, useContext } from 'react';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext'; //
 import { useNavigate } from 'react-router-dom';
 
 export default function Login() {
@@ -7,17 +7,17 @@ export default function Login() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { login, signup } = useContext(AuthContext);
+  const { login, signup } = useContext(AuthContext); //
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (isLogin) {
-        // FIX: Passing data as a single object
+        // FIX: Pass data as a single object
         await login({ email, password });
       } else {
-        // FIX: Passing data as a single object with 'name' matching your Schema
+        // FIX: Pass data as a single object with 'name' matching your Schema
         await signup({ name, email, password });
       }
       navigate('/');
